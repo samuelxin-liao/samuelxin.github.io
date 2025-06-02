@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高雄展覽館行車動線及臨停地點</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column; /* Arrange children vertically */
+            align-items: center;
+            min-height: 100vh; /* Ensure body takes at least full viewport height */
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            /* Remove overflow: hidden to allow scrolling if content exceeds viewport height */
+            /* overflow: hidden; */
+        }
+
+        h1 {
+             margin-top: 10px; /* Add some space above title */
+             margin-bottom: 10px; /* Add space below title */
+             font-size: 24px; /* Default font size */
+        }
+
+
+        .container {
+            position: relative;
+            margin: 0 auto; /* Center horizontally */
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            width: 95%; /* Use percentage for responsiveness */
+            max-width: 900px; /* Max width to prevent becoming too wide on large screens */
+            flex-grow: 1; /* Allow container to take up available vertical space */
+            flex-shrink: 1; /* Allow container to shrink if needed */
+            /* Important: Set a minimum height to prevent map area from becoming tiny */
+            min-height: 200px; /* Example minimum height, adjust if needed */
+
+            display: flex; /* Flex inside to center the map image */
+            justify-content: center;
+            align-items: center;
+             /* Adjust margin to give space around container */
+             margin-top: 10px;
+             margin-bottom: 10px;
+        }
+
+        .map-background {
+            display: block;
+            max-width: 100%; /* Image should not exceed container width */
+            max-height: 100%; /* Image should not exceed container height */
+            object-fit: contain; /* Ensure the entire image is visible, maintain aspect ratio */
+            /* Allow image to be flexible within the flex container */
+            flex-grow: 1;
+            flex-shrink: 1;
+        }
+
+        .car {
+            position: absolute;
+            width: 30px;
+            height: 20px;
+            background-color: red;
+            border-radius: 5px;
+            transform-origin: center;
+            z-index: 10;
+            transition: none; /* 移除 transition, 位置由 requestAnimationFrame 精確控制 */
+            box-sizing: border-box; /* 考慮 padding 和 border 在寬高內 */
+            border: 1px solid black; /* 增加邊框方便觀察 */
+        }
+
+         .car:after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 5px; /* 調整車燈位置 */
+            right: 5px; /* 調整車燈位置 */
+            height: 5px; /* 調整車燈高度 */
+            background-color: #ffff99;
+            border-radius: 2px;
+        }
+
+
+        .controls {
+            margin-top: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 95%; /* Match container width */
+            max-width: 900px; /* Match container max-width */
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .settings {
+            margin-top: 0; /* Adjust margin */
+            margin-bottom: 10px;
+            width: 95%; /* Match container width */
+            max-width: 900px; /* Match container max-width */
+             background-color: #fff; /* Add background to settings block */
+             border: 1px solid #ccc; /* Add border */
+             padding: 10px; /* Add padding */
+             border-radius: 5px; /* Add rounded corners */
+             box-sizing: border-box; /* Include padding/border in width */
+
+             /* Initial state - hidden */
+             display: none; /* Hide by default */
+        }
+
+        .settings-header {
+            display: flex; /* Use flex to align title and button */
+            justify-content: space-between; /* Space out title and button */
+            align-items: center; /* Vertically align items */
+            margin-bottom: 10px; /* Space below header */
+        }
+
+        .settings-header h3 {
+            margin: 0; /* Remove default margin */
+            font-size: 18px;
+        }
+
+        #toggle-settings-btn {
+             padding: 5px 10px; /* Smaller padding for toggle button */
+             font-size: 14px;
+             background-color: #555; /* Different color */
+        }
+
+         #toggle-settings-btn:hover {
+             background-color: #333;
+         }
+
+
+        textarea {
+            width: 100%;
+            height: 150px; /* Reduced height to save space */
+            font-family: monospace;
+            margin-bottom: 0; /* Remove bottom margin */
+            padding: 10px;
+            box-sizing: border-box; /* Include padding in width */
+            border: 1px solid #ccc; /* Add border */
+        }
+
+        .speed-control {
+            margin: 10px 0; /* Adjust margin */
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 95%; /* Match container width */
+            max-width: 900px; /* Match container max-width */
+        }
+
+        .speed-control input {
+            flex-grow: 1;
+        }
+
+        .info {
+            margin-top: 0; /* Adjust margin */
+            margin-bottom: 10px; /* Add margin at the bottom */
+            padding: 10px;
+            background-color: #e8f4f8;
+            border-radius: 5px;
+            width: 95%; /* Match container width */
+            max-width: 900px; /* Match container max-width */
+             box-sizing: border-box; /* Include padding in width */
+        }
+
+         .info h3 {
+             margin-top: 0;
+         }
+
+         .info ul {
+             margin-bottom: 0;
+         }
+
+        /* --- Responsive Adjustments for smaller screens --- */
+        @media (max-width: 768px) {
+            h1 {
+                 font-size: 20px; /* Smaller title */
+                 margin-top: 5px;
+                 margin-bottom: 5px;
+            }
+
+            .speed-control,
+            .controls,
+            .info {
+                 margin-top: 5px;
+                 margin-bottom: 5px;
+                 gap: 5px; /* Smaller gap between buttons/elements */
+            }
+
+             button {
+                 padding: 8px 15px; /* Smaller button padding */
+                 font-size: 14px; /* Smaller button font size */
+             }
+
+             .settings {
+                 margin-bottom: 5px;
+                 padding: 8px; /* Smaller settings padding */
+             }
+
+             .settings-header {
+                 margin-bottom: 8px; /* Smaller margin below settings header */
+             }
+
+             .settings-header h3 {
+                 font-size: 16px; /* Smaller settings title font size */
+             }
+
+             #toggle-settings-btn {
+                 padding: 4px 8px; /* Even smaller toggle button padding */
+                 font-size: 12px; /* Even smaller toggle button font size */
+             }
+
+             textarea {
+                 height: 120px; /* Possibly make textarea smaller on mobile */
+             }
+
+             .info {
+                 padding: 8px; /* Smaller info padding */
+             }
+
+             .modal-content {
+                  padding: 15px; /* Smaller modal padding on mobile */
+             }
+
+             .modal-title {
+                 font-size: 18px;
+                 margin-bottom: 10px;
+                 padding-bottom: 8px;
+             }
+
+             .modal-close-button {
+                 font-size: 20px;
+                 top: 8px;
+                 right: 10px;
+             }
+        }
+
+        /* Custom Modal Styles (Keep as is, they are fixed position) */
+        .modal-backdrop {
+            position: fixed; /* Fixed position to cover the whole screen */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black background */
+            display: flex; /* Use flexbox to center the modal content */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Ensure modal is above everything else */
+            visibility: hidden; /* Hidden by default */
+            opacity: 0; /* Start with 0 opacity */
+            transition: opacity 0.3s ease; /* Add a fade transition */
+        }
+
+        .modal-backdrop.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            padding: 25px; /* Default padding */
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            max-width: 500px; /* Max width of the modal content */
+            width: 90%; /* Responsive width */
+            text-align: left; /* Align text to the left for readability */
+            position: relative; /* Needed for positioning the close button */
+             max-height: 90vh; /* Limit modal height */
+             overflow-y: auto; /* Add scroll if content is too long */
+             box-sizing: border-box; /* Include padding in width/height */
+        }
+
+        .modal-close-button {
+            position: absolute;
+            top: 10px; /* Default position */
+            right: 15px; /* Default position */
+            font-size: 24px; /* Default font size */
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+            transition: color 0.3s ease;
+            border: none; /* Remove default button border */
+            background: none; /* Remove default button background */
+            padding: 0; /* Remove default padding */
+            line-height: 1; /* Adjust line height for better centering */
+        }
+
+        .modal-close-button:hover {
+            color: #777;
+        }
+
+        .modal-message {
+            margin-bottom: 20px; /* Space below the message */
+            white-space: pre-wrap; /* Preserve line breaks and spaces from the message string */
+            line-height: 1.6; /* Improve readability */
+            color: #333;
+        }
+
+        .modal-title {
+             font-size: 20px; /* Default font size */
+             margin-top: 0;
+             margin-bottom: 15px; /* Default margin */
+             color: #333;
+             border-bottom: 1px solid #eee;
+             padding-bottom: 10px; /* Default padding */
+        }
+
+
+    </style>
+</head>
+<body>
+    <h1>正確的行車動線動畫圖</h1>
+
+    <div class="speed-control" style="display: none;">
+        <label for="speed-slider">速度調整：</label>
+        <input type="range" id="speed-slider" min="0.1" max="5" step="0.1" value="1">
+        <span id="speed-value">1.0x</span>
+    </div>
+
+    <div class="controls">
+        <!-- 路線按鈕 -->
+        <button id="start-route1-btn">年長行動不便接送</button>
+        <button id="start-route2-btn">新光停車/接送</button>
+
+        <!-- 控制按鈕 -->
+        <button id="stop-btn" style="display: none;">停止</button>
+        <button id="reset-btn" style="display: none;">重置</button>
+        <!-- Apply Settings button is now within the settings section header -->
+    </div>
+
+    <div class="container">
+        <!-- 確保你有一張名為 map.png 的圖片或替換為其他圖片 -->
+        <img src="map.png" alt="地圖背景" class="map-background">
+        <div class="car" id="car"></div>
+    </div>
+
+    <div class="settings">
+        <div class="settings-header">
+             <h3>移動設定 (JSON 格式)</h3>
+             <button id="toggle-settings-btn">顯示設定</button> <!-- Button to toggle visibility -->
+        </div>
+         <!-- Moved apply button outside settings-header but still inside settings -->
+        <textarea id="path-settings"></textarea>
+         <button id="apply-settings-btn" style="margin-top: 10px;">套用設定</button>
+    </div>
+
+    <div class="info">
+        <h3>行車動線和臨停說明</h3>
+<li style="color:red">●請勿在成功路二段直接左轉，會被罰款</li>
+
+<li>●進入大會場（高雄展覽館）地下停車場）
+或新光公有停車場、計程車・接送車輛臨
+停區時，請一定按藍色箭頭方向行進。</li>
+<li>●若搭乘計程車或開車接送，請在「計程
+車・接送車輛臨停區」臨停上下車。</li>
+<li>●停①等代表停車場位置，請參考《大會場
+周邊停車場資訊》頁面。</li>
+    </div>
+
+    <!-- Custom Completion Modal (Keep at the end of body) -->
+    <div id="completionModal" class="modal-backdrop">
+        <div class="modal-content">
+            <button class="modal-close-button">&times;</button> <!-- &times; is the HTML entity for 'x' -->
+            <h3 class="modal-title">正確的行車動線</h3>
+            <div id="modalMessage" class="modal-message"></div>
+            <!-- Optional: Add more buttons in a footer here -->
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const car = document.getElementById('car');
+            const startRoute1Btn = document.getElementById('start-route1-btn');
+            const startRoute2Btn = document.getElementById('start-route2-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            // Apply Settings button is now inside settings div
+            const applySettingsBtn = document.getElementById('apply-settings-btn');
+            const pathSettingsTextarea = document.getElementById('path-settings');
+            const mapImg = document.querySelector('.map-background');
+            const speedSlider = document.getElementById('speed-slider');
+            const speedValue = document.getElementById('speed-value');
+
+            // Get settings section and toggle button
+            const settingsSection = document.querySelector('.settings');
+            const toggleSettingsBtn = document.getElementById('toggle-settings-btn');
+
+
+            // Modal elements
+            const completionModal = document.getElementById('completionModal');
+            const modalMessage = document.getElementById('modalMessage');
+            const closeModalBtn = completionModal.querySelector('.modal-close-button');
+
+
+            let animationId;
+            let isAnimating = false;
+            let currentStepIndex = 0;
+            let animationStartTime = 0; // 整個動畫序列的開始時間
+            let currentSegmentStartTime = 0; // 當前移動步驟的開始時間
+
+            let pathSteps = []; // 解析後的移動步驟陣列
+            let completionMessage = "動畫播放完畢！"; // 動畫完成時顯示的訊息，可透過設定檔修改
+
+            // State for the current segment being animated
+            let segmentStartPoint = { x: 0, y: 0 }; // 當前步驟的起始點 (相對比例 0-1)
+            let segmentEndPoint = { x: 0, y: 0 }; // 當前步驟的終點 (相對比例 0-1)
+            let segmentDuration = 0; // 當前步驟的持續時間 (毫秒)
+            let segmentAngle = 0; // 當前步驟車頭朝向的角度 (度)
+
+            let animationSpeed = 1.0; // 動畫播放速度乘數
+
+            // 定義不同的預設路線設定
+            const route1Settings = {
+                steps: [
+                    { startX: 0.1, startY: 0.44, direction: "right", duration: 1000, distance: 0.16 },
+                    { direction: "down", duration: 1000, distance: 0.46 },
+                    { direction: "right", duration: 1000, distance: 0.57 },
+                    { direction: "up", duration: 1500, distance: 0.46 },
+                    { direction: "left", duration: 1000, distance: 0.18 },
+                    { direction: "up", duration: 1500, distance: 0.1 },
+                ],
+                completionMessage: "這裡是大會場的大門口。\n\n請注意，大會場大門口不可以停車\n地下室只供行動不便或長者上下車，這裡的停車收費是一小時80元\n如果您想接送家人或研究生\n請在大會場旁的新光停車場的臨停區接送"
+            };
+
+             const route2Settings = {
+                steps: [
+                    { startX: 0.1, startY: 0.44, direction: "right", duration: 1000, distance: 0.16 },
+                    { direction: "down", duration: 1000, distance: 0.46 },
+                    { direction: "right", duration: 1000, distance: 0.57 },
+                    { direction: "up", duration: 1500, distance: 0.46 },
+                    { direction: "left", duration: 1000, distance: 0.44 },
+                    { direction: "up", duration: 1500, distance: 0.1 },
+                ],
+                completionMessage: "這裡是新光停車。\n\n這裡規劃為一般小客車臨停區方便接送。"
+            };
+
+            // === ResizeObserver to handle map resizing (e.g., orientation changes) ===
+            const mapResizeObserver = new ResizeObserver(entries => {
+                for (let entry of entries) {
+                    // Check if the observed element is the map image
+                    if (entry.target === mapImg) {
+                         console.log(`Map image size changed. New dimensions: ${entry.contentRect.width}x${entry.contentRect.height}. Repositioning car if stopped.`);
+                        // If animation is NOT running, reposition the car
+                        // This keeps the car at its current *relative* position on the newly sized map.
+                        if (!isAnimating && pathSteps.length > 0) {
+                            // We need the car's current *relative* position
+                            const currentRelativePos = getCarPosition(); // This function reads CSS pixels and converts to relative based on CURRENT map size
+                            // Reposition using the current relative position and the last set angle
+                            positionCar(currentRelativePos.x, currentRelativePos.y, segmentAngle); // Use segmentAngle which holds the angle of the current segment
+                        }
+                         // If animation IS running, the animateCar loop will handle positioning
+                         // based on the new map dimensions in the next frame.
+                    }
+                }
+            });
+
+
+            // 等待地圖圖片加載完成，然後初始化車輛位置 (使用預設的第一個路線)
+            function waitForMapLoad() {
+                 if (mapImg.complete) {
+                    initializeCarPosition();
+                } else {
+                    mapImg.onload = initializeCarPosition;
+                    mapImg.onerror = () => console.error("地圖圖片加載失敗！");
+                }
+            }
+
+            waitForMapLoad();
+
+
+            function initializeCarPosition() {
+                 console.log("Map loaded. Initializing car position.");
+                 // 頁面載入時，先將 route1 的設定放入文字區域並套用
+                 loadSettingsIntoTextarea(route1Settings);
+                 applyPathSettings(); // 套用設定並重置車輛到第一個路線的起點
+
+                 // 初始化時隱藏設定區塊
+                 toggleSettingsVisibility(false); // Hide settings initially
+
+                 // Start observing map image for resize AFTER it's loaded and positioned in the DOM
+                 mapResizeObserver.observe(mapImg);
+            }
+
+            // 將指定的設定物件轉換為 JSON 字串並填入文字區域
+            function loadSettingsIntoTextarea(settingsObject) {
+                pathSettingsTextarea.value = JSON.stringify(settingsObject, null, 2);
+            }
+
+
+            // 從文字區域解析並套用設定
+            function applyPathSettings() {
+                // 在套用新設定前，先停止當前動畫並隱藏 modal
+                isAnimating = false;
+                cancelAnimationFrame(animationId);
+                animationId = null;
+                hideCompletionModal(); // 隱藏任何可能顯示的 modal
+
+                try {
+                    const settings = JSON.parse(pathSettingsTextarea.value);
+
+                    if (!settings || typeof settings !== 'object') {
+                         throw new Error("設定必須是一個 JSON 物件。");
+                    }
+                    if (!Array.isArray(settings.steps)) {
+                        throw new Error("設定物件必須包含一個名為 'steps' 的 JSON 陣列。");
+                    }
+
+                    pathSteps = settings.steps; // 提取步驟陣列
+                    completionMessage = settings.completionMessage || "動畫播放完畢！"; // 提取完成訊息，提供默認值
+
+                     if (pathSteps.length === 0) {
+                         console.warn("沒有移動步驟在設定中。");
+                         alert("沒有移動步驟在設定中。請提供有效的移動步驟。"); // 這裡保留 alert，因為是設定錯誤，可能需要使用者立即看到
+                         completionMessage = "沒有定義移動步驟。"; // 如果沒有步驟，完成訊息意義不大
+                         // 這裡我們仍然呼叫 resetCar，它會將車輛放在默認位置
+                     } else if (pathSteps[0].startX === undefined || pathSteps[0].startY === undefined) {
+                         throw new Error("第一個移動步驟必須包含 startX 和 startY。");
+                     }
+
+
+                    console.log("成功套用移動設定:", pathSteps);
+                    console.log("完成訊息:", completionMessage);
+
+                } catch (e) {
+                    console.error("移動設定 JSON 格式錯誤或驗證失敗:", e);
+                    alert("移動設定錯誤: " + e.message + "\n請檢查 JSON 格式和設定內容。"); // 保留 alert 顯示錯誤訊息
+                    pathSteps = []; // 清空步驟以避免使用無效設定
+                    completionMessage = "載入設定錯誤。"; // 設定錯誤時的完成訊息
+                } finally {
+                     // 無論成功或失敗，都重置車輛狀態到新的起點 (如果設定有效的話)
+                     resetCar();
+                }
+            }
+
+            // 根據方向獲取車輛旋轉角度
+            function getAngleFromDirection(direction) {
+                switch (direction) {
+                    case "right": return 0;
+                    case "down": return 90;
+                    case "left": return 180;
+                    case "up": return 270;
+                    default: return 0; // 默認向右
+                }
+            }
+
+            // 根據比例位置和角度定位車輛 (核心函數，利用地圖當前尺寸)
+            function positionCar(xPercent, yPercent, angle) {
+                // Get the *current* rendered dimensions of the map image
+                const mapWidth = mapImg.offsetWidth;
+                const mapHeight = mapImg.offsetHeight;
+
+                if (mapWidth === 0 || mapHeight === 0) {
+                     console.warn("地圖尺寸為零，無法定位車輛。");
+                     return;
+                 }
+
+                // 將比例位置轉換為像素位置
+                const xPosPx = mapWidth * xPercent;
+                const yPosPx = mapHeight * yPercent;
+
+                // 設置車輛的 CSS left 和 top，使其中心位於目標像素位置
+                // 這裡假設車輛元素的變換原點 (transform-origin) 是中心 (默認或CSS設定)
+                car.style.left = `${xPosPx - car.offsetWidth / 2}px`;
+                car.style.top = `${yPosPx - car.offsetHeight / 2}px`;
+                car.style.transform = `rotate(${angle}deg)`;
+
+                // 在這裡不更新 segmentStartPoint，它應該在 setupNextSegment 或 animateCar 的最後一步完成時更新
+                // This function is just about RENDERING the car at a given relative position.
+            }
+
+
+             // 根據起始點、方向和距離計算終點 (比例)
+            function calculateEndPoint(startPoint, direction, distance) {
+                const endPoint = { ...startPoint }; // 複製起始點
+
+                switch (direction) {
+                    case "right":
+                        endPoint.x += distance;
+                        break;
+                    case "left":
+                        endPoint.x -= distance;
+                        break;
+                    case "down":
+                        endPoint.y += distance;
+                        break;
+                    case "up":
+                        endPoint.y -= distance;
+                        break;
+                }
+
+                // 可選：限制終點在 0 到 1 之間，防止車輛跑出地圖
+                endPoint.x = Math.max(0, Math.min(1, endPoint.x));
+                endPoint.y = Math.max(0, Math.min(1, endPoint.y));
+
+                return endPoint;
+            }
+
+            // 獲取車輛當前的比例位置 (基於其CSS屬性)
+            function getCarPosition() {
+                const mapWidth = mapImg.offsetWidth;
+                const mapHeight = mapImg.offsetHeight;
+
+                 if (mapWidth === 0 || mapHeight === 0) {
+                     console.warn("地圖尺寸為零，無法獲取車輛位置。");
+                     // Return a default or last known valid position if possible,
+                     // but for now, returning {0,0} or previous segmentStartPoint might be okay.
+                     // Let's return {0,0} as a fallback, though ideally this shouldn't happen if positionCar works.
+                     // A better fallback might be the segmentStartPoint if available.
+                     return segmentStartPoint || { x: 0, y: 0 };
+                 }
+
+                // 從 CSS left/top 計算車輛中心的像素位置
+                // Note: car.style.left/top are strings like "100px"
+                const carLeftPx = parseFloat(car.style.left) || 0; // Use || 0 for safety
+                const carTopPx = parseFloat(car.style.top) || 0;
+
+                const xPosPx = carLeftPx + car.offsetWidth / 2;
+                const yPosPx = carTopPx + car.offsetHeight / 2;
+
+                // 將像素位置轉換為比例位置
+                return {
+                    x: xPosPx / mapWidth,
+                    y: yPosPx / mapHeight
+                };
+            }
+
+
+            // 準備下一個移動步驟的狀態
+            function setupNextSegment() {
+                 console.log(`準備步驟: ${currentStepIndex}`);
+                if (currentStepIndex >= pathSteps.length) {
+                    console.log("所有步驟完成。");
+                    // 所有步驟完成
+                    isAnimating = false;
+                    startRoute1Btn.disabled = false;
+                    startRoute2Btn.disabled = false; // 所有路線按鈕都可用
+                    stopBtn.disabled = true;
+                    cancelAnimationFrame(animationId);
+                    animationId = null; // 清除ID
+
+                    // 顯示完成訊息 (使用自定義 Modal)
+                    if (completionMessage) {
+                         showCompletionModal(completionMessage);
+                    }
+
+                    return false; // 表示沒有更多步驟了
+                }
+
+                const nextStep = pathSteps[currentStepIndex];
+                const defaultDistance = 0.15; // 默認距離 (比例)
+                const defaultDuration = 2000; // 默認持續時間 (毫秒)
+
+                // 確定新片段的起始點
+                if (nextStep.startX !== undefined && nextStep.startY !== undefined) {
+                    // 如果步驟明確指定了起點，使用它
+                    segmentStartPoint = { x: nextStep.startX, y: nextStep.startY };
+                     console.log(`步驟 ${currentStepIndex}: 使用指定起點 (${segmentStartPoint.x.toFixed(2)}, ${segmentStartPoint.y.toFixed(2)})`);
+                } else {
+                    // 否則，使用上一個片段的終點作為新片段的起點
+                    // segmentStartPoint 在上一個步驟完成時 (animateCar 函數中 progress >= 1 的地方) 被更新為上一步的實際終點
+                     console.log(`步驟 ${currentStepIndex}: 從上一步終點 (${segmentStartPoint.x.toFixed(2)}, ${segmentStartPoint.y.toFixed(2)}) 開始`);
+                }
+
+                // 確定方向、持續時間和距離
+                const direction = nextStep.direction || "right"; // 默認方向
+                const distance = nextStep.distance !== undefined ? nextStep.distance : defaultDistance;
+                segmentDuration = nextStep.duration || defaultDuration;
+
+                // 計算新片段的終點
+                segmentEndPoint = calculateEndPoint(segmentStartPoint, direction, distance);
+
+                // 設置車輛角度
+                segmentAngle = getAngleFromDirection(direction);
+                car.style.transform = `rotate(${segmentAngle}deg)`; // 在新片段開始時立即設置角度
+
+                 console.log(`步驟 ${currentStepIndex}: 移動方向 ${direction}, 距離 ${distance.toFixed(2)}, 持續時間 ${segmentDuration}, 終點 (${segmentEndPoint.x.toFixed(2)}, ${segmentEndPoint.y.toFixed(2)})`);
+
+                // 重置片段開始時間
+                // currentSegmentStartTime 將在 animateCar 的第一幀中設置為實際時間戳
+
+                return true; // 表示成功設置了下一個步驟
+            }
+
+
+            // 主動畫循環
+            function animateCar(timestamp) {
+                if (!isAnimating) {
+                     animationId = null; // 清除ID
+                     return; // 停止動畫
+                }
+
+                // 第一次進入動畫循環時，設置起始時間
+                if (animationStartTime === 0) {
+                    animationStartTime = timestamp;
+                    currentSegmentStartTime = timestamp; // 第一個片段的開始時間就是動畫開始時間
+
+                    // The first segment state is set in resetCar, called by applyPathSettings
+                    // Ensure car is positioned at the start of the first segment
+                     positionCar(segmentStartPoint.x, segmentStartPoint.y, segmentAngle);
+                }
+
+                // Calculate elapsed time for the current segment (scaled by speed)
+                const elapsedTime = (timestamp - currentSegmentStartTime) * animationSpeed;
+
+                // Calculate animation progress for the current segment (0 to 1)
+                const progress = Math.min(elapsedTime / segmentDuration, 1);
+
+                // Calculate the car's current position using linear interpolation between start and end points
+                // segmentStartPoint and segmentEndPoint are relative (0-1) coordinates
+                const currentX = segmentStartPoint.x + (segmentEndPoint.x - segmentStartPoint.x) * progress;
+                const currentY = segmentStartPoint.y + (segmentEndPoint.y - segmentStartPoint.y) * progress;
+
+                // Update car position (angle is set when segment starts)
+                // positionCar uses the CURRENT map dimensions to calculate pixel position
+                positionCar(currentX, currentY, segmentAngle);
+
+
+                // Check if the current segment is complete
+                if (progress >= 1) {
+                     console.log(`步驟 ${currentStepIndex} 完成。準備下一個步驟...`);
+                    // Current segment is complete, record the actual end point as the potential start for the next step
+                    // positionCar ensures the car is at the calculated end point (currentX, currentY)
+                    // So update segmentStartPoint to this final position
+                     segmentStartPoint = { x: currentX, y: currentY }; // Record the exact final position
+
+                    // Move to the next step
+                    currentStepIndex++;
+                    currentSegmentStartTime = timestamp; // The start time for the new segment is the current timestamp
+
+                    // Set up the state for the next segment. If no more segments, setupNextSegment stops the animation.
+                    if (!setupNextSegment()) {
+                        return; // setupNextSegment has already stopped the animation and handled completion
+                    }
+                    // Note: setupNextSegment has updated segmentStartPoint, segmentEndPoint, segmentDuration, segmentAngle
+                    // The next call to animateCar will use these new values.
+                    // No need to call positionCar here again, the next animation frame will do it.
+
+                }
+
+                // Request the next animation frame
+                animationId = requestAnimationFrame(animateCar);
+            }
+
+
+            // 重置車輛到當前設定的起始點
+            function resetCar() {
+                isAnimating = false;
+                cancelAnimationFrame(animationId); // 取消任何正在進行的動畫
+                animationId = null; // 清除動畫ID
+
+                currentStepIndex = 0; // 重置步驟索引
+                animationStartTime = 0; // 重置動畫開始時間，下次開始時會重新設置
+                currentSegmentStartTime = 0; // 重置片段開始時間
+
+                // 隱藏可能顯示的 Modal
+                hideCompletionModal();
+
+
+                // 啟用/禁用按鈕
+                startRoute1Btn.disabled = false;
+                startRoute2Btn.disabled = false;
+                stopBtn.disabled = true;
+                // applySettingsBtn 和 resetBtn 永遠可用
+
+                // 設置第一個步驟的初始狀態 (如果存在) 並將車輛定位到其起點
+                 if (pathSteps.length > 0) {
+                    const firstStep = pathSteps[0];
+                    // 由於 applyPathSettings 驗證了第一個步驟必須有 startX/startY
+                    segmentStartPoint = { x: firstStep.startX, y: firstStep.startY };
+                    const direction = firstStep.direction || "right";
+                    const distance = firstStep.distance !== undefined ? firstStep.distance : 0.15;
+                    segmentEndPoint = calculateEndPoint(segmentStartPoint, direction, distance); // 計算第一個步驟的終點
+                    segmentDuration = firstStep.duration || 2000;
+                    segmentAngle = getAngleFromDirection(direction);
+
+                    // 將車輛定位到第一個步驟的起始點 - This uses the *current* map dimensions
+                    positionCar(segmentStartPoint.x, segmentStartPoint.y, segmentAngle);
+                     console.log(`重置車輛到起始位置 (${segmentStartPoint.x.toFixed(2)}, ${segmentStartPoint.y.toFixed(2)}), 角度 ${segmentAngle}`);
+
+                 } else {
+                     // 如果沒有設定步驟 (pathSteps 為空)，定位到默認位置 (0.1, 0.1)
+                     segmentStartPoint = { x: 0.1, y: 0.1 };
+                     segmentEndPoint = { x: 0.1, y: 0.1 }; // 終點也設為起點，無移動
+                     segmentDuration = 0;
+                     segmentAngle = 0;
+                     positionCar(0.1, 0.1, 0); // Use current map dimensions
+                     console.warn("沒有有效的移動步驟，車輛重置到默認位置 (0.1, 0.1)。");
+                 }
+            }
+
+            // 啟動動畫序列的函數
+            function startAnimationSequence() {
+                 if (pathSteps.length === 0) {
+                     // 使用 alert 顯示錯誤訊息，因為這不是動畫完成訊息
+                     alert("沒有移動步驟可執行。請先套用有效的移動設定。");
+                     return;
+                 }
+
+                if (!isAnimating) {
+                    isAnimating = true;
+                    animationStartTime = 0; // 確保下次 animateCar 執行時能重新設置時間和第一個 segment 狀態
+                    // currentSegmentStartTime 設為 0 也讓 animateCar 知道是新的開始
+
+                    // resetCar 已經確保車輛在第一個步驟的起點且 segment 狀態已設置
+                    // 所以直接請求第一幀動畫即可
+                    startRoute1Btn.disabled = true;
+                    startRoute2Btn.disabled = true; // 開始動畫後禁用路線按鈕
+                    stopBtn.disabled = false;
+                    // applySettingsBtn 和 resetBtn 仍然可用
+
+                    requestAnimationFrame(animateCar);
+                }
+            }
+
+            // 顯示完成訊息 Modal
+            function showCompletionModal(message) {
+                 modalMessage.textContent = message; // Set the message text
+                 completionModal.classList.add('visible'); // Make the modal visible
+            }
+
+            // 隱藏完成訊息 Modal
+            function hideCompletionModal() {
+                completionModal.classList.remove('visible'); // Hide the modal
+            }
+
+            // 切換設定區塊的顯示/隱藏
+            function toggleSettingsVisibility(show) {
+                const isVisible = settingsSection.style.display === 'block';
+
+                if (show === undefined) { // If show is not specified, toggle
+                    if (isVisible) {
+                        settingsSection.style.display = 'none';
+                        toggleSettingsBtn.textContent = '顯示設定';
+                    } else {
+                        settingsSection.style.display = 'block';
+                        toggleSettingsBtn.textContent = '隱藏設定';
+                    }
+                } else { // If show is specified (true/false)
+                    if (show) {
+                         settingsSection.style.display = 'block';
+                         toggleSettingsBtn.textContent = '隱藏設定';
+                    } else {
+                         settingsSection.style.display = 'none';
+                         toggleSettingsBtn.textContent = '顯示設定';
+                    }
+                }
+            }
+
+
+            // 事件監聽器
+
+            // 路線按鈕點擊事件 - 載入設定並啟動動畫
+            startRoute1Btn.addEventListener('click', function() {
+                loadSettingsIntoTextarea(route1Settings); // 載入 Route 1 設定
+                applyPathSettings(); // 套用設定並重置車輛 (這也會隱藏 modal)
+                startAnimationSequence(); // 啟動動畫
+                toggleSettingsVisibility(false); // 點擊路線按鈕後隱藏設定區塊
+            });
+
+            startRoute2Btn.addEventListener('click', function() {
+                loadSettingsIntoTextarea(route2Settings); // 載入 Route 2 設定
+                applyPathSettings(); // 套用設定並重置車輛 (這也會隱藏 modal)
+                startAnimationSequence(); // 啟動動畫
+                toggleSettingsVisibility(false); // 點擊路線按鈕後隱藏設定區塊
+            });
+
+
+            stopBtn.addEventListener('click', function() {
+                if (isAnimating) {
+                    isAnimating = false;
+                    startRoute1Btn.disabled = false; // 停止後重新啟用路線按鈕
+                    startRoute2Btn.disabled = false;
+                    stopBtn.disabled = true;
+                    cancelAnimationFrame(animationId);
+                    animationId = null; // 清除動畫ID
+                    console.log("動畫已停止。");
+                    // When stopping, trigger repositioning in case map size changed while animating
+                     // This ensures it stops at the correct relative spot on the current map size
+                     const currentRelativePos = getCarPosition();
+                     positionCar(currentRelativePos.x, currentRelativePos.y, segmentAngle);
+                }
+            });
+
+            // 重置按鈕 - 停止動畫並重置車輛到當前設定的起點 (也會隱藏 modal)
+            resetBtn.addEventListener('click', resetCar);
+
+            // 套用設定按鈕 - 僅將文字區域的設定載入並重置車輛到起點，不啟動動畫 (也會隱藏 modal)
+            // 這個按鈕現在在 settings 區塊內部了
+            applySettingsBtn.addEventListener('click', function() {
+                applyPathSettings(); // 套用設定並重置車輛
+                // 不呼叫 startAnimationSequence()
+                // 可以選擇在套用後隱藏設定區塊，但讓它保持開啟可能更方便編輯
+                // toggleSettingsVisibility(false); // 可選：套用後自動隱藏
+            });
+
+            // Toggle settings button listener
+            toggleSettingsBtn.addEventListener('click', function() {
+                 toggleSettingsVisibility(); // Toggle visibility when clicked
+            });
+
+            speedSlider.addEventListener('input', function() {
+                animationSpeed = parseFloat(this.value);
+                speedValue.textContent = animationSpeed.toFixed(1) + 'x';
+            });
+
+            // Modal close button listener
+            closeModalBtn.addEventListener('click', hideCompletionModal);
+
+            // Optional: Close modal if clicking outside the content area
+            completionModal.addEventListener('click', function(event) {
+                // Check if the click target is the backdrop itself, not the modal content
+                if (event.target === completionModal) {
+                    hideCompletionModal();
+                }
+            });
+
+            // Disconnect the observer when the page is unloaded (good practice)
+            window.addEventListener('beforeunload', () => {
+                mapResizeObserver.disconnect();
+            });
+
+        });
+    </script>
+</body>
+</html>
